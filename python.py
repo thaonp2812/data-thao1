@@ -196,15 +196,17 @@ def get_ai_response_chat(history, api_key, model_name='gemini-2.5-flash'):
     try:
         client = genai.Client(api_key=api_key)
         
-        # Chuyển đổi lịch sử trò chuyện Streamlit sang định dạng Contents (message list) của GenAI
+        # Chuyển đổi lịch sử trò chuyện Streamlit sang định dạng Contents của GenAI
         messages_for_ai = []
         
         for message in history:
-            # Role 'assistant' trong Streamlit tương ứng với 'model' trong GenAI
-            role = "user" if message["role"] == "user" else "model"
-            messages_for_ai.append({"role": role, "parts": [{"text": message["content"]}]})
+            # Chỉ gửi tin nhắn của 'user' và 'assistant' (được AI phản hồi)
+            if message["role"] in ["user", "assistant"]:
+                # Role 'assistant' trong Streamlit tương ứng với 'model' trong GenAI
+                role = "user" if message["role"] == "user" else "model"
+                messages_for_ai.append({"role": role, "parts": [{"text": message["content"]}]})
         
-        # Gọi API với toàn bộ lịch sử
+        # Gọi API với toàn bộ lịch sử (bao gồm cả bối cảnh dữ liệu tài chính)
         response = client.models.generate_content(
             model=model_name,
             contents=messages_for_ai
@@ -245,7 +247,7 @@ def process_financial_data(df):
     tong_tai_san_row = df[df['Chỉ tiêu'].str.contains('TỔNG CỘNG TÀI SẢN', case=False, na=False)]
     
     if tong_tai_san_row.empty:
-        # Thử tìm "TỔNG TÀI SẢN" nếu không tìm thấy "TỔNG CỘNG TÀI SẢN"
+        # Thêm kiểm tra mở rộng nếu chỉ tìm thấy "TỔNG TÀI SẢN"
         tong_tai_san_row = df[df['Chỉ tiêu'].str.contains('TỔNG TÀI SẢN', case=False, na=False)]
         if tong_tai_san_row.empty:
             raise ValueError("Không tìm thấy chỉ tiêu 'TỔNG CỘNG TÀI SẢN'.")
@@ -254,8 +256,20 @@ def process_financial_data(df):
     tong_tai_san_N = tong_tai_san_row['Năm sau'].iloc[0]
 
     # ******************************* PHẦN SỬA LỖI BẮT ĐẦU *******************************
-    # Lỗi xảy ra khi dùng .replace() trên giá trị đơn lẻ (numpy.int64).
-    # Sử dụng điều kiện ternary để xử lý giá trị 0 thủ công cho mẫu số.
-    
     divisor_N_1 = tong_tai_san_N_1 if tong_tai_san_N_1 != 0 else 1e-9
-    divisor_N = tong_tai_san_
+    divisor_N = tong_tai_san_N if tong_tai_san_N != 0 else 1e-9
+
+    # Tính tỷ trọng với mẫu số đã được xử lý
+    df['Tỷ trọng Năm trước (%)'] = (df['Năm trước'] / divisor_N_1) * 100
+    df['Tỷ trọng Năm sau (%)'] = (df['Năm sau'] / divisor_N) * 100
+    # ******************************* PHẦN SỬA LỖI KẾT THÚC *******************************
+    
+    return df
+
+# --- Hàm gọi API Gemini (Chức năng 5) ---
+def get_ai_analysis(data_for_ai, api_key):
+    """Gửi dữ liệu phân tích đến Gemini API và nhận nhận xét."""
+    try:
+        client = genai.Client(api_key=api_key)
+        model_name
+
